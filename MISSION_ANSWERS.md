@@ -202,6 +202,31 @@ Content-Type: application/json
 
 Cả hai request trả `200 OK` với header `Server: nginx`, xác nhận đường đi từ cổng HTTP trên host qua Nginx tới agent.
 
+## Part 3 — Cloud Deployment
+
+### Exercise 3.2 — Deploy agent lên Render
+
+Tôi deploy agent Part 6 trong `06-lab-complete/` lên Render bằng Docker và dùng Key Value tương thích Redis ở cùng region Oregon. URL public là [Day 14 Agent](https://k5-l3b-day14-nguyenminhduc-2a202603751.onrender.com). `GET /health` và `GET /ready` đều trả 200. `POST /ask` trả 401 khi thiếu key và 200 khi có key đúng. [Cấu hình và kết quả test](DEPLOYMENT.md)
+
+### So sánh cấu hình Railway và Render
+
+| Hạng mục | Railway TOML của Part 6 | Render YAML mẫu và cấu hình đã dùng |
+|---|---|---|
+| Cấu trúc | Các mục `[build]` và `[deploy]` đặt cấu hình cho agent. | Blueprint YAML dùng danh sách `services`, khai báo riêng web service và datastore. Tôi tạo hai service qua dashboard. |
+| Build và khởi động | `builder = "DOCKERFILE"` và `dockerfilePath = "Dockerfile"`. | Blueprint ví dụ trong Part 3 dùng Python với các lệnh build và start. Agent Part 6 trên Render chọn runtime Docker, đặt Root Directory là `06-lab-complete` và dùng `CMD` trong Dockerfile. |
+| Health check và secret | `healthcheckPath = "/health"`. Key đặt trong biến môi trường của service và `REDIS_URL` tham chiếu service Redis. | Tương ứng với `healthCheckPath: /health`. Blueprint có thể yêu cầu nhập secret bằng `sync: false` hoặc sinh key bằng `generateValue: true`. Trên dashboard tôi đặt key và Internal URL của Key Value trong Environment Variables. |
+
+[Railway TOML](06-lab-complete/railway.toml) · [Render YAML mẫu](03-cloud-deployment/render/render.yaml)
+
+### Exercise 3.3 — Đọc pipeline Cloud Run
+
+1. `cloudbuild.yaml` cài dependencies và chạy `pytest` trong container Python 3.11.
+2. Sau bước test, Cloud Build build Docker image, gắn tag theo commit SHA và `latest`, rồi push cả hai tag lên registry.
+3. Bước deploy dùng image theo commit SHA để cập nhật service Cloud Run ở `asia-southeast1`, truyền cấu hình production và lấy secret từ Secret Manager.
+4. `service.yaml` mô tả service theo cách khai báo, gồm giới hạn **1–10 instance**, concurrency **80**, startup probe `/ready` và liveness probe `/health`.
+
+[Cloud Build](03-cloud-deployment/production-cloud-run/cloudbuild.yaml) · [Cloud Run service](03-cloud-deployment/production-cloud-run/service.yaml)
+
 ## Part 4 — API Security
 
 ### Exercise 4.1 — API Key Authentication
@@ -404,3 +429,4 @@ Chạy lại `python check_production_ready.py` trong `06-lab-complete/` trên U
 - **Part 4** — Tôi đọc code, lấy JWT demo và chạy các test rate limit, role và usage. Tôi gửi phần giải thích và kết quả thực tế cho Codex để đối chiếu với code. Codex chạy thêm ba case API key trên một instance develop riêng, che JWT và làm rõ race condition trong thiết kế cost guard.
 - **Part 5** — Tôi đọc code, chạy Compose với 3 agent, gửi thêm 9 request để quan sát phân phối, rồi chạy `python test_stateless.py`. Tôi xác nhận có 3 instance phục vụ và 10 message trong history. Codex đối chiếu với mã nguồn và trình bày lại kết quả trong báo cáo.
 - **Part 6** — Tôi hoàn thiện các file của agent và chạy script chấm đầy đủ. Tôi gửi bảng triển khai, output và mô tả sự cố Docker để Codex chạy xác nhận lại trong WSL và ghi checklist của lần chạy mới vào báo cáo.
+- **Part 3** — Tôi tạo dịch vụ Render và Key Value, cấu hình biến môi trường, rồi tự chạy `POST /ask` có key và nhận HTTP 200. Codex kiểm tra các endpoint public còn lại, tổng hợp kết quả và đối chiếu các file cấu hình deploy với đề.
